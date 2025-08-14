@@ -9,15 +9,16 @@ import tempfile
 from fastapi.responses import FileResponse
 from fastapi import BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from rag import build_sora_prompt, router
 
 # Load env vars
 load_dotenv()
 
 app = FastAPI()
-
+app.include_router(router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (for development only)
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,6 +95,64 @@ def generate_video(data: VideoPrompt, background_tasks: BackgroundTasks):
     tmp_file.close()
 
     # Schedule deletion after response is sent
+    background_tasks.add_task(os.remove, tmp_file.name)
+
+    # Step 5: Return video file
+    return FileResponse(tmp_file.name, media_type="video/mp4", filename="output.mp4")
+
+@app.post("/generate-video1")
+def generate_video1(data: VideoPrompt, background_tasks: BackgroundTasks):
+    # ✅ Build Sora-friendly prompt with RAG context if available
+    final_prompt = build_sora_prompt(data.prompt)  # Uses the merging logic
+
+    # Step 1: Create video generation job
+    create_url = f"{AZURE_OPENAI_ENDPOINT}/openai/v1/video/generations/jobs?api-version={OPENAI_API_VERSION}"
+    body = {
+        "prompt": final_prompt,
+        "width": data.width,
+        "height": data.height,
+        "n_seconds": data.n_seconds,
+        "model": AZURE_OPENAI_DEPLOYMENT_NAME
+    }
+    try:
+        response = requests.post(create_url, headers=headers, json=body)
+        response.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create video job: {str(e)}")
+
+    job_id = response.json().get("id")
+    if not job_id:
+        raise HTTPException(status_code=500, detail="No job ID returned from Azure.")
+
+    # Step 2: Poll for job status
+    status_url = f"{AZURE_OPENAI_ENDPOINT}/openai/v1/video/generations/jobs/{job_id}?api-version={OPENAI_API_VERSION}"
+    status = None
+    while status not in ("succeeded", "failed", "cancelled"):
+        time.sleep(5)
+        status_response = requests.get(status_url, headers=headers).json()
+        status = status_response.get("status")
+
+    if status != "succeeded":
+        raise HTTPException(status_code=500, detail=f"Video generation failed. Status: {status}")
+
+    # Step 3: Download video
+    generations = status_response.get("generations", [])
+    if not generations:
+        raise HTTPException(status_code=500, detail="No video generations found.")
+
+    generation_id = generations[0].get("id")
+    video_url = f"{AZURE_OPENAI_ENDPOINT}/openai/v1/video/generations/{generation_id}/content/video?api-version={OPENAI_API_VERSION}"
+    video_response = requests.get(video_url, headers=headers)
+
+    if not video_response.ok:
+        raise HTTPException(status_code=500, detail="Failed to download video.")
+
+    # Step 4: Save video to temp file
+    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+    tmp_file.write(video_response.content)
+    tmp_file.close()
+
+    # Schedule file deletion
     background_tasks.add_task(os.remove, tmp_file.name)
 
     # Step 5: Return video file
