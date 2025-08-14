@@ -71,4 +71,4 @@ npm run dev
 ## Current Limitations
 
 1. Since It's deployed on free tier its facing problem cold start.
-2. Seondly there's a bug by which I able to access the my backend from any chrome I am currently working on it. 
+2. Seondly there's a bug by which one am able to access the my backend from browser I am currently working on it. 
