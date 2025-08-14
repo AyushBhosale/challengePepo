@@ -41,7 +41,7 @@ function VideoApp() {
     formData.append("file", selectedFile);
 
     try {
-      await axios.post("http://localhost:8000/upload_doc", formData, {
+      await axios.post("https://pepo-backend-latest.onrender.com/upload_doc", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       alert("File uploaded successfully!");
@@ -61,7 +61,7 @@ function VideoApp() {
 
     try {
       const res = await axios.post(
-        "http://localhost:8000/generate-video1",
+        "https://pepo-backend-latest.onrender.com/generate-video1",
         { prompt, width: 480, height: 480, n_seconds: 5 },
         { responseType: "blob" }
       );
