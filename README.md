@@ -72,3 +72,6 @@ npm run dev
 
 1. Since It's deployed on free tier its facing problem cold start.
 2. Seondly there's a bug by which one am able to access the my backend from browser I am currently working on it. 
+
+**Future Plans:**  
+- With more resources, I’ll scale it up so it starts faster than your Maggi cooks and runs reliably for multiple users.
