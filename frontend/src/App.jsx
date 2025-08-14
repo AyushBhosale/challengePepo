@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-function VideoForm() {
+function VideoApp() {
+  const [selectedFile, setSelectedFile] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [videoUrl, setVideoUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -9,67 +10,105 @@ function VideoForm() {
 
   const quotes = [
     "Good things take time — so does this video.",
-    "Imagining the Scene..",
-    "Rome wasnt Built in a Day, and but this video will.",
-    "Just Like a fine wine, this video needs time to age.",
-    "Hold on we are cooking",
-    "We are building this Pixel by pixel, frame by frame… ",
+    "Imagining the scene...",
+    "Rome wasn’t built in a day, but this video might be.",
+    "Just like fine wine, this video needs time to age.",
+    "Hold on... we’re cooking something good.",
+    "Building pixel by pixel, frame by frame…",
     "I wish I was this slow.",
     "Video generation in progress… grab a snack!",
   ];
 
+  // Change quotes while loading
   useEffect(() => {
     if (loading) {
-      
       setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)]);
-
       const interval = setInterval(() => {
         setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)]);
       }, 2000);
-
       return () => clearInterval(interval);
     } else {
       setCurrentQuote("");
     }
   }, [loading]);
 
-  const handleSubmit = async (e) => {
+  // Upload file
+  const handleFileUpload = async (e) => {
     e.preventDefault();
+    if (!selectedFile) return alert("Select a file first");
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      await axios.post("http://localhost:8000/upload_doc", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      alert("File uploaded successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("File upload failed");
+    }
+  };
+
+  // Generate video
+  const handlePromptSubmit = async (e) => {
+    e.preventDefault();
+    if (!prompt.trim()) return alert("Enter a prompt first");
+
     setLoading(true);
     setVideoUrl(null);
 
     try {
-      const response = await axios.post(
-        "http://localhost:8000/generate-video",
+      const res = await axios.post(
+        "http://localhost:8000/generate-video1",
         { prompt, width: 480, height: 480, n_seconds: 5 },
         { responseType: "blob" }
       );
-      const url = URL.createObjectURL(response.data);
+      const url = URL.createObjectURL(res.data);
       setVideoUrl(url);
     } catch (err) {
       console.error(err);
-      alert("Failed to generate video");
+      alert("Video generation failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6 space-y-8">
+      {/* File Upload Form */}
       <form
-        onSubmit={handleSubmit}
+        onSubmit={handleFileUpload}
+        className="bg-gray-800 p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
+      >
+        <h2 className="text-xl font-bold text-center">📂 Upload Document</h2>
+        <input
+          type="file"
+          onChange={(e) => setSelectedFile(e.target.files[0])}
+          className="w-full p-3 rounded-lg border border-gray-700 bg-gray-900 text-white"
+        />
+        <button
+          type="submit"
+          className="w-full bg-green-600 hover:bg-green-700 transition-colors duration-200 py-3 rounded-lg font-semibold"
+        >
+          Upload File
+        </button>
+      </form>
+
+      {/* Video Generation Form */}
+      <form
+        onSubmit={handlePromptSubmit}
         className="bg-gray-800 p-6 rounded-xl shadow-lg w-full max-w-md space-y-4"
       >
         <h1 className="text-2xl font-bold text-center">🎥 AI Video Generator</h1>
-
         <input
           type="text"
+          placeholder="Enter prompt..."
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Enter video prompt..."
           className="w-full p-3 rounded-lg border border-gray-700 bg-gray-900 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-
         <button
           type="submit"
           disabled={loading}
@@ -77,14 +116,15 @@ function VideoForm() {
         >
           {loading ? "Generating..." : "Generate Video"}
         </button>
+
+        {loading && currentQuote && (
+          <p className="mt-4 text-center text-gray-300 italic animate-pulse">
+            {currentQuote}
+          </p>
+        )}
       </form>
 
-      {loading && currentQuote && (
-        <p className="mt-6 text-center text-gray-300 italic animate-pulse">
-          {currentQuote}
-        </p>
-      )}
-
+      {/* Show generated video */}
       {videoUrl && (
         <div className="mt-8">
           <video
@@ -101,4 +141,4 @@ function VideoForm() {
   );
 }
 
-export default VideoForm;
+export default VideoApp;
