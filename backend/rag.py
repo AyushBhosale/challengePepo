@@ -8,6 +8,8 @@ import numpy as np
 from typing import List
 from openai import AzureOpenAI
 from dotenv import load_dotenv
+import re
+
 load_dotenv()
 router = APIRouter()
 
@@ -29,6 +31,7 @@ documents: List[str] = []
 MAX_DOCS = 2000       # Cap on total chunks
 MAX_PDF_SIZE_MB = 10  # PDF file size limit
 
+
 def extract_text_from_file(file_path: str) -> str:
     ext = os.path.splitext(file_path)[-1].lower()
     text = ""
@@ -47,6 +50,7 @@ def extract_text_from_file(file_path: str) -> str:
         raise ValueError("Unsupported file type")
     return text
 
+
 def get_azure_embeddings(texts: List[str]) -> np.ndarray:
     response = client.embeddings.create(
         model=AZURE_EMBEDDING_MODEL,
@@ -54,6 +58,7 @@ def get_azure_embeddings(texts: List[str]) -> np.ndarray:
     )
     embeddings = [item.embedding for item in response.data]
     return np.array(embeddings, dtype=np.float32)
+
 
 @router.post("/upload_doc")
 async def upload_doc(file: UploadFile = File(...)):
@@ -120,12 +125,10 @@ def build_sora_prompt(query: str, top_k: int = 1) -> str:
 
     # Merge and clean retrieved context
     context_text = " ".join(clean_context(documents[i]) for i in valid_idxs)
-    
+
     # Combine naturally
     return f"{query} {context_text}"
 
-
-import re
 
 def clean_context(text: str) -> str:
     # Remove emails, phone numbers, and URLs
@@ -135,7 +138,9 @@ def clean_context(text: str) -> str:
     text = re.sub(r'\s+', ' ', text)  # collapse whitespace
     return text.strip()
 
+
 @router.post("/test-prompt")
 def test_prompt(data: str):
     final_prompt = build_sora_prompt(data)
     return {"prompt": final_prompt}
+
